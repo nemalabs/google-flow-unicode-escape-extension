@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Unicode Escape for Google Labs FX",
+  "version": "1.0.0",
+  "description": "Converts non-ASCII characters to Unicode escape sequences in Google Labs FX text areas",
+  "content_scripts": [
+    {
+      "matches": ["https://labs.google/fx/ja/tools/flow/*"],
+      "js": ["dist/content.js"]
+    }
+  ]
+}
