@@ -69,15 +69,11 @@ function attachEvents(): void {
     true
   );
 
-  // TODO: IME変換確定時（isComposing: true）のEnterキーを無視する
-  // - e.isComposing が true の場合は convertTextArea() を呼ばない
-  // - IME入力中のEnterはテキスト確定用であり、送信意図ではないため
-  // - 条件: e.key === "Enter" && !e.isComposing && target.id === TEXTAREA_ID
   document.addEventListener(
     "keydown",
     (e: KeyboardEvent) => {
       const target = e.target as Element;
-      if (e.key === "Enter" && target.id === TEXTAREA_ID) {
+      if (e.key === "Enter" && !e.isComposing && target.id === TEXTAREA_ID) {
         convertTextArea();
       }
     },
