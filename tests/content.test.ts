@@ -42,6 +42,22 @@ describe("Content Script", () => {
       expect(textarea.value).toBe("\\u5165\\u529B\\u30C6\\u30B9\\u30C8");
     });
 
+    it("IME変換確定のEnterキーではテキストが変換されない", () => {
+      const textarea = createTextArea("入力テスト");
+      document.body.appendChild(textarea);
+      setupUnicodeEscape();
+
+      textarea.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          isComposing: true,
+        })
+      );
+
+      expect(textarea.value).toBe("入力テスト");
+    });
+
     it("「作成」ボタンclickでテキストが変換される", () => {
       const textarea = createTextArea("日本語");
       const button = createSubmitButton();
