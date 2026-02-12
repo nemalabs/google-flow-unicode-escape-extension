@@ -58,6 +58,22 @@ describe("Content Script", () => {
       expect(textarea.value).toBe("入力テスト");
     });
 
+    it("Shift+Enterではテキストが変換されない（改行目的）", () => {
+      const textarea = createTextArea("入力テスト");
+      document.body.appendChild(textarea);
+      setupUnicodeEscape();
+
+      textarea.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          shiftKey: true,
+        })
+      );
+
+      expect(textarea.value).toBe("入力テスト");
+    });
+
     it("「作成」ボタンclickでテキストが変換される", () => {
       const textarea = createTextArea("日本語");
       const button = createSubmitButton();
@@ -147,6 +163,34 @@ describe("Content Script", () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(textarea.value).toBe("テスト reuse");
+    });
+
+    it("表示エリアの「正面からのアングル」エスケープが正しくデコードされる", async () => {
+      setupUnicodeEscape();
+
+      const div = document.createElement("div");
+      div.textContent =
+        "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
+      document.body.appendChild(div);
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(div.textContent).toBe("正面からのアングル");
+    });
+
+    it("textareaに「正面からのアングル」のエスケープ値が設定された時にデコードされる", async () => {
+      const textarea = createTextArea("");
+      document.body.appendChild(textarea);
+      setupUnicodeEscape();
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      textarea.value =
+        "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(textarea.value).toBe("正面からのアングル");
     });
 
     it("textareaにプログラム的に値が設定された時にデコードされる", async () => {

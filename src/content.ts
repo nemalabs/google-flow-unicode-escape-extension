@@ -73,7 +73,7 @@ function attachEvents(): void {
     "keydown",
     (e: KeyboardEvent) => {
       const target = e.target as Element;
-      if (e.key === "Enter" && !e.isComposing && target.id === TEXTAREA_ID) {
+      if (e.key === "Enter" && !e.isComposing && !e.shiftKey && target.id === TEXTAREA_ID) {
         convertTextArea();
       }
     },
