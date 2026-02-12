@@ -31,6 +31,21 @@ describe("escapeUnicode", () => {
       "test \\u30C6\\u30B9\\u30C8 123"
     );
   });
+
+  it("should escape leading non-ASCII characters with correct \\u prefix", () => {
+    // Bug report: "正面からのアングル" displays as "6B63面からのアングル"
+    // This suggests the \u prefix of \u6B63 is being lost.
+    // "正面" must produce \u6B63\u9762, not "6B63\u9762" or "6B639762"
+    const result = escapeUnicode("正面");
+    expect(result).toBe("\\u6B63\\u9762");
+  });
+
+  it("should produce correct escape for the full reported string", () => {
+    const result = escapeUnicode("正面からのアングル");
+    expect(result).toBe(
+      "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB"
+    );
+  });
 });
 
 describe("unescapeUnicode", () => {
@@ -59,6 +74,42 @@ describe("unescapeUnicode", () => {
   });
 
   it("escapeUnicodeの逆変換になる", () => {
+    const original = "テスト test 😀 こんにちは";
+    expect(unescapeUnicode(escapeUnicode(original))).toBe(original);
+  });
+
+  it("should unescape consecutive sequences without boundary confusion at \\u6B63\\u9762", () => {
+    // Key test: The hex value "6B63" ends right before the next "\u9762".
+    // A faulty regex or parser could consume characters across the boundary.
+    // \u6B63 = "正", \u9762 = "面"
+    const result = unescapeUnicode("\\u6B63\\u9762");
+    expect(result).toBe("正面");
+  });
+
+  it("should unescape the full reported string with mixed ASCII", () => {
+    const input =
+      "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
+    expect(unescapeUnicode(input)).toBe("正面からのアングル");
+  });
+});
+
+describe("round-trip: escape then unescape", () => {
+  it("should return original string for the reported bug case", () => {
+    // Core bug verification: "正面からのアングル" must survive a round-trip.
+    // If \u prefix is lost during escape, unescape would fail to decode and
+    // the raw hex "6B63" would appear in the result.
+    const original = "正面からのアングル";
+    const escaped = escapeUnicode(original);
+    const roundTripped = unescapeUnicode(escaped);
+    expect(roundTripped).toBe(original);
+  });
+
+  it("should round-trip ASCII-only strings unchanged", () => {
+    const original = "hello world 123";
+    expect(unescapeUnicode(escapeUnicode(original))).toBe(original);
+  });
+
+  it("should round-trip strings with surrogate pairs", () => {
     const original = "テスト test 😀 こんにちは";
     expect(unescapeUnicode(escapeUnicode(original))).toBe(original);
   });
