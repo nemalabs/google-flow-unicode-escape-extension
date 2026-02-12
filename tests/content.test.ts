@@ -42,6 +42,28 @@ describe("Content Script", () => {
       expect(textarea.value).toBe("\\u5165\\u529B\\u30C6\\u30B9\\u30C8");
     });
 
+    it("inputイベント中にアプリがvalueを再設定してもエスケープ値が保持される", () => {
+      const textarea = createTextArea("正面からのアングル");
+      document.body.appendChild(textarea);
+      setupUnicodeEscape();
+
+      // アプリのinputハンドラがvalueを再設定するシミュレート
+      textarea.addEventListener("input", () => {
+        // React等のフレームワークがcontrolled componentで値を再設定するケース
+        const current = textarea.value;
+        textarea.value = current;
+      });
+
+      textarea.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
+      );
+
+      // エスケープ値が維持されていること（デコードされていないこと）
+      expect(textarea.value).toBe(
+        "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB"
+      );
+    });
+
     it("IME変換確定のEnterキーではテキストが変換されない", () => {
       const textarea = createTextArea("入力テスト");
       document.body.appendChild(textarea);

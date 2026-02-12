@@ -21,8 +21,8 @@ function convertTextArea(): void {
 
   escaping = true;
   textarea.value = after;
-  escaping = false;
   textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  escaping = false;
 }
 
 function decodeTextAreaValue(): void {
