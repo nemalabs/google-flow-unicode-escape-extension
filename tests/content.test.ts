@@ -39,7 +39,7 @@ describe("Content Script", () => {
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
       );
 
-      expect(textarea.value).toBe("\\u5165\\u529B\\u30C6\\u30B9\\u30C8");
+      expect(textarea.value).toBe(" \\u5165\\u529B\\u30C6\\u30B9\\u30C8");
     });
 
     it("inputイベント中にアプリがvalueを再設定してもエスケープ値が保持される", () => {
@@ -60,7 +60,7 @@ describe("Content Script", () => {
 
       // エスケープ値が維持されていること（デコードされていないこと）
       expect(textarea.value).toBe(
-        "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB"
+        " \\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB"
       );
     });
 
@@ -105,7 +105,7 @@ describe("Content Script", () => {
 
       button.click();
 
-      expect(textarea.value).toBe("\\u65E5\\u672C\\u8A9E");
+      expect(textarea.value).toBe(" \\u65E5\\u672C\\u8A9E");
     });
 
     it("ASCII文字のみの場合は変換されない", () => {
@@ -132,7 +132,7 @@ describe("Content Script", () => {
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
       );
 
-      expect(textarea.value).toBe("\\u9045\\u5EF6\\u8FFD\\u52A0");
+      expect(textarea.value).toBe(" \\u9045\\u5EF6\\u8FFD\\u52A0");
     });
 
     it("表示エリアの\\uXXXXテキストが自動デコードされる", async () => {
@@ -192,7 +192,7 @@ describe("Content Script", () => {
 
       const div = document.createElement("div");
       div.textContent =
-        "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
+        " \\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
       document.body.appendChild(div);
 
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -208,7 +208,7 @@ describe("Content Script", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       textarea.value =
-        "\\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
+        " \\u6B63\\u9762\\u304B\\u3089\\u306E\\u30A2\\u30F3\\u30B0\\u30EB";
 
       await new Promise((resolve) => setTimeout(resolve, 0));
 

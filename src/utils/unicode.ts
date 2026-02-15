@@ -1,5 +1,6 @@
 export function unescapeUnicode(str: string): string {
-  return str.replace(/\\u([0-9A-Fa-f]{4})/g, (_, hex) =>
+  const trimmed = str.startsWith(" \\u") ? str.slice(1) : str;
+  return trimmed.replace(/\\u([0-9A-Fa-f]{4})/g, (_, hex) =>
     String.fromCharCode(parseInt(hex, 16))
   );
 }
@@ -13,6 +14,9 @@ export function escapeUnicode(str: string): string {
     } else {
       result += str[i];
     }
+  }
+  if (result.startsWith("\\u")) {
+    result = " " + result;
   }
   return result;
 }
