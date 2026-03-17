@@ -53,15 +53,6 @@ function decodeEditorValue(): void {
   setEditorText(editor, unescapeUnicode(text));
 }
 
-
-function isSubmitButton(el: Element): boolean {
-  const button = el.closest("button");
-  if (!button) return false;
-  const icon = button.querySelector("i");
-  const iconText = icon?.textContent?.trim() || "";
-  return iconText === "arrow_forward" && (button.textContent || "").includes("作成");
-}
-
 function isReuseButton(el: Element): boolean {
   const button = el.closest("button");
   if (!button) return false;
