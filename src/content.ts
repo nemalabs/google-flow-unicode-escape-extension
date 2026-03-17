@@ -1,4 +1,5 @@
 import { unescapeUnicode } from "./utils/unicode";
+import { escapePayloadTextParts } from "./utils/payload";
 
 const SLATE_EDITOR_SELECTOR = '[data-slate-editor="true"]';
 const UNICODE_ESCAPE_RE = /\\u[0-9A-Fa-f]{4}/;
@@ -155,17 +156,20 @@ function observeDisplayArea(): void {
   });
 }
 
-// TODO [Green Phase]: fetchインターセプトの実装
-// - window.fetch をラップし、元のfetchを保持する
-// - リクエストURLが "aisandbox-pa.googleapis.com" を含み、
-//   パスに "batchGenerateImages" を含む場合のみインターセプト
-// - 対象リクエストのbodyを escapePayloadTextParts() で変換してから元のfetchに渡す
-// - 非対象URLはそのまま元のfetchに転送する
-// - referenceパート（imageやinlineDataを持つpart）はescapePayloadTextPartsが
-//   textプロパティを持つpartのみを変換するため、変更されない
-// - import: escapePayloadTextParts from "./utils/payload"
+function isTargetRequest(url: string): boolean {
+  return url.includes("aisandbox-pa.googleapis.com") && url.includes("batchGenerateImages");
+}
+
 export function installFetchInterceptor(): void {
-  // TODO: 実装する
+  const originalFetch = window.fetch;
+  window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (isTargetRequest(url) && init?.body && typeof init.body === "string") {
+      const modifiedInit = { ...init, body: escapePayloadTextParts(init.body) };
+      return originalFetch.call(this, input, modifiedInit);
+    }
+    return originalFetch.call(this, input, init);
+  } as typeof fetch;
 }
 
 export function setupUnicodeEscape(): void {

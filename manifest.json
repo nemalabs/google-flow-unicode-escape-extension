@@ -6,7 +6,8 @@
   "content_scripts": [
     {
       "matches": ["https://labs.google/fx/ja/tools/flow/*"],
-      "js": ["dist/content.js"]
+      "js": ["dist/content.js"],
+      "world": "MAIN"
     }
   ]
 }
