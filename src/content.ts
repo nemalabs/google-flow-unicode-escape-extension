@@ -1,11 +1,10 @@
-import { escapeUnicode, unescapeUnicode } from "./utils/unicode";
+import { unescapeUnicode } from "./utils/unicode";
 
 const SLATE_EDITOR_SELECTOR = '[data-slate-editor="true"]';
 const UNICODE_ESCAPE_RE = /\\u[0-9A-Fa-f]{4}/;
 const ELEMENT_NODE = 1;
 const TEXT_NODE = 3;
 
-let escaping = false;
 let justComposed = false;
 
 function getSlateEditor(): HTMLElement | null {
@@ -43,21 +42,6 @@ function setEditorText(editor: HTMLElement, text: string): void {
   editor.dispatchEvent(beforeInputEvent);
 }
 
-function convertEditor(): void {
-  const editor = getSlateEditor();
-  if (!editor) return;
-
-  const before = getEditorText(editor);
-  if (!before) return;
-
-  const after = escapeUnicode(before);
-  if (before === after) return;
-
-  escaping = true;
-  setEditorText(editor, after);
-  escaping = false;
-}
-
 function decodeEditorValue(): void {
   const editor = getSlateEditor();
   if (!editor) return;
@@ -88,9 +72,6 @@ function attachEvents(): void {
     "click",
     (e: MouseEvent) => {
       const target = e.target as Element;
-      if (isSubmitButton(target)) {
-        convertEditor();
-      }
       if (isReuseButton(target)) {
         let attempts = 0;
         const timer = setInterval(() => {
@@ -121,10 +102,6 @@ function attachEvents(): void {
       return;
     }
 
-    // keydownのみ: 通常のEnter送信時にconvertEditor発動
-    if (e.type === "keydown" && !e.shiftKey) {
-      convertEditor();
-    }
   }
 
   // keydown, keypress, keyup すべてでIME確定Enterをブロック
@@ -178,7 +155,21 @@ function observeDisplayArea(): void {
   });
 }
 
+// TODO [Green Phase]: fetchインターセプトの実装
+// - window.fetch をラップし、元のfetchを保持する
+// - リクエストURLが "aisandbox-pa.googleapis.com" を含み、
+//   パスに "batchGenerateImages" を含む場合のみインターセプト
+// - 対象リクエストのbodyを escapePayloadTextParts() で変換してから元のfetchに渡す
+// - 非対象URLはそのまま元のfetchに転送する
+// - referenceパート（imageやinlineDataを持つpart）はescapePayloadTextPartsが
+//   textプロパティを持つpartのみを変換するため、変更されない
+// - import: escapePayloadTextParts from "./utils/payload"
+export function installFetchInterceptor(): void {
+  // TODO: 実装する
+}
+
 export function setupUnicodeEscape(): void {
+  installFetchInterceptor();
   attachEvents();
   decodeDisplayedText(document.body);
   observeDisplayArea();

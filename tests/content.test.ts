@@ -23,50 +23,10 @@ describe("Content Script", () => {
     return editor;
   }
 
-  function createMultiLineSlateEditor(lines: string[]): HTMLDivElement {
-    const editor = document.createElement("div");
-    editor.setAttribute("data-slate-editor", "true");
-    editor.setAttribute("contenteditable", "true");
-    for (const line of lines) {
-      const p = document.createElement("p");
-      p.setAttribute("data-slate-node", "element");
-      const span = document.createElement("span");
-      span.setAttribute("data-slate-node", "text");
-      const leaf = document.createElement("span");
-      leaf.setAttribute("data-slate-leaf", "true");
-      leaf.textContent = line;
-      span.appendChild(leaf);
-      p.appendChild(span);
-      editor.appendChild(p);
-    }
-    return editor;
-  }
-
-  function createEmptySlateEditorWithPlaceholder(): HTMLDivElement {
-    const editor = document.createElement("div");
-    editor.setAttribute("data-slate-editor", "true");
-    editor.setAttribute("contenteditable", "true");
-    const placeholder = document.createElement("span");
-    placeholder.setAttribute("data-slate-placeholder", "true");
-    placeholder.textContent = "プロンプトを入力してください";
-    editor.appendChild(placeholder);
-    const p = document.createElement("p");
-    p.setAttribute("data-slate-node", "element");
-    const span = document.createElement("span");
-    span.setAttribute("data-slate-node", "text");
-    const leaf = document.createElement("span");
-    leaf.setAttribute("data-slate-leaf", "true");
-    leaf.textContent = "";
-    span.appendChild(leaf);
-    p.appendChild(span);
-    editor.appendChild(p);
-    return editor;
-  }
-
-  function createSubmitButton(): HTMLButtonElement {
+  function createAttachButton(): HTMLButtonElement {
     const button = document.createElement("button");
     const icon = document.createElement("i");
-    icon.textContent = "arrow_forward";
+    icon.textContent = "add_2";
     button.appendChild(icon);
     const textSpan = document.createElement("span");
     textSpan.textContent = "作成";
@@ -74,10 +34,10 @@ describe("Content Script", () => {
     return button;
   }
 
-  function createAttachButton(): HTMLButtonElement {
+  function createSubmitButton(): HTMLButtonElement {
     const button = document.createElement("button");
     const icon = document.createElement("i");
-    icon.textContent = "add_2";
+    icon.textContent = "arrow_forward";
     button.appendChild(icon);
     const textSpan = document.createElement("span");
     textSpan.textContent = "作成";
@@ -104,19 +64,21 @@ describe("Content Script", () => {
 
   // jsdomのInputEventがinputType/dataTransferをサポートしないためpolyfill
   const OriginalInputEvent = globalThis.InputEvent;
-  (globalThis as Record<string, unknown>).InputEvent = class PatchedInputEvent extends OriginalInputEvent {
-    declare inputType: string;
-    declare dataTransfer: DataTransfer | null;
-    constructor(type: string, init?: InputEventInit & { inputType?: string; dataTransfer?: DataTransfer }) {
-      super(type, init);
-      if (init?.inputType) {
-        Object.defineProperty(this, "inputType", { value: init.inputType, writable: false });
+  if (typeof OriginalInputEvent === "function") {
+    (globalThis as Record<string, unknown>).InputEvent = class PatchedInputEvent extends OriginalInputEvent {
+      declare inputType: string;
+      declare dataTransfer: DataTransfer | null;
+      constructor(type: string, init?: InputEventInit & { inputType?: string; dataTransfer?: DataTransfer }) {
+        super(type, init);
+        if (init?.inputType) {
+          Object.defineProperty(this, "inputType", { value: init.inputType, writable: false });
+        }
+        if (init?.dataTransfer) {
+          Object.defineProperty(this, "dataTransfer", { value: init.dataTransfer, writable: false });
+        }
       }
-      if (init?.dataTransfer) {
-        Object.defineProperty(this, "dataTransfer", { value: init.dataTransfer, writable: false });
-      }
-    }
-  };
+    };
+  }
 
   // setEditorTextで使われるAPIのモック
   function mockEditorAPIs(): void {
@@ -167,7 +129,7 @@ describe("Content Script", () => {
   }
 
   describe("setupUnicodeEscape", () => {
-    it("Enterキー押下でSlateエディタのテキストが変換される", () => {
+    it("Enterキー押下でSlateエディタのテキストが変換されない（fetch側で処理）", () => {
       const editor = createSlateEditor("入力テスト");
       document.body.appendChild(editor);
       mockEditorAPIs();
@@ -178,8 +140,7 @@ describe("Content Script", () => {
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
       );
 
-      const resultLeaf = editor.querySelector('[data-slate-leaf="true"]');
-      expect(resultLeaf?.textContent).toBe(" \\u5165\\u529B\\u30C6\\u30B9\\u30C8");
+      expect(leaf.textContent).toBe("入力テスト");
     });
 
     it("IME変換確定のEnterキーではテキストが変換されない（isComposing）", () => {
@@ -219,7 +180,7 @@ describe("Content Script", () => {
       expect(leaf.textContent).toBe("入力テスト");
     });
 
-    it("compositionend後、次のイベントループではEnterが通常通り動く", async () => {
+    it("compositionend後、次のイベントループではEnterが通るがテキストは変換されない", async () => {
       const editor = createSlateEditor("入力テスト");
       document.body.appendChild(editor);
       mockEditorAPIs();
@@ -233,12 +194,13 @@ describe("Content Script", () => {
       // 次のイベントループまで待つ
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      leaf.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
-      );
+      const enterEvent = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+      leaf.dispatchEvent(enterEvent);
 
-      const resultLeaf = editor.querySelector('[data-slate-leaf="true"]');
-      expect(resultLeaf?.textContent).toBe(" \\u5165\\u529B\\u30C6\\u30B9\\u30C8");
+      // Enterはブロックされない（defaultPreventedがfalse）
+      expect(enterEvent.defaultPrevented).toBe(false);
+      // しかしテキストは変換されない（fetch側で処理するため）
+      expect(leaf.textContent).toBe("入力テスト");
     });
 
     it("Shift+Enterではテキストが変換されない（改行目的）", () => {
@@ -259,7 +221,7 @@ describe("Content Script", () => {
       expect(leaf.textContent).toBe("入力テスト");
     });
 
-    it("arrow_forward付き「作成」ボタンclickでテキストが変換される", () => {
+    it("arrow_forward付き「作成」ボタンclickでテキストが変換されない（fetch側で処理）", () => {
       const editor = createSlateEditor("日本語");
       const button = createSubmitButton();
       document.body.appendChild(editor);
@@ -270,7 +232,7 @@ describe("Content Script", () => {
       button.click();
 
       const leaf = editor.querySelector('[data-slate-leaf="true"]');
-      expect(leaf?.textContent).toBe(" \\u65E5\\u672C\\u8A9E");
+      expect(leaf?.textContent).toBe("日本語");
     });
 
     it("add_2アイコンの「作成」ボタン（添付ボタン）では変換されない", () => {
@@ -301,38 +263,6 @@ describe("Content Script", () => {
       expect(leaf.textContent).toBe("hello world");
     });
 
-    it("プレースホルダのみの場合は変換されない", () => {
-      const editor = createEmptySlateEditorWithPlaceholder();
-      document.body.appendChild(editor);
-      mockEditorAPIs();
-      setupUnicodeEscape();
-
-      const leaf = editor.querySelector('[data-slate-leaf="true"]')!;
-      leaf.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
-      );
-
-      const placeholder = editor.querySelector('[data-slate-placeholder="true"]');
-      expect(placeholder).toBeTruthy();
-      expect(leaf.textContent).toBe("");
-    });
-
-    it("複数行テキストが改行付きで正しく変換される", () => {
-      const editor = createMultiLineSlateEditor(["一行目", "二行目"]);
-      document.body.appendChild(editor);
-      mockEditorAPIs();
-      setupUnicodeEscape();
-
-      const leaf = editor.querySelector('[data-slate-leaf="true"]')!;
-      leaf.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
-      );
-
-      const leaves = editor.querySelectorAll('[data-slate-leaf="true"]');
-      expect(leaves[0]?.textContent).toBe(" \\u4E00\\u884C\\u76EE");
-      expect(leaves[1]?.textContent).toBe("\\u4E8C\\u884C\\u76EE");
-    });
-
     it("Slateエディタが後から追加された場合MutationObserverで検知する", async () => {
       mockEditorAPIs();
       setupUnicodeEscape();
@@ -342,13 +272,9 @@ describe("Content Script", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 0));
 
+      // エディタが検知されたことを確認（テキストは変換されない）
       const leaf = editor.querySelector('[data-slate-leaf="true"]')!;
-      leaf.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Enter", bubbles: true })
-      );
-
-      const resultLeaf = editor.querySelector('[data-slate-leaf="true"]');
-      expect(resultLeaf?.textContent).toBe(" \\u9045\\u5EF6\\u8FFD\\u52A0");
+      expect(leaf.textContent).toBe("遅延追加");
     });
 
     it("表示エリアの\\uXXXXテキストが自動デコードされる", async () => {
@@ -417,6 +343,111 @@ describe("Content Script", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(div.textContent).toBe("正面からのアングル");
+    });
+  });
+
+  describe("fetch インターセプト", () => {
+    const TARGET_URL = "https://aisandbox-pa.googleapis.com/v1:batchGenerateImages";
+    const NON_TARGET_URL = "https://example.com/api/data";
+
+    function createRequestBody(textValue: string): string {
+      return JSON.stringify({
+        requests: [
+          {
+            structuredPrompt: {
+              parts: [
+                { text: textValue },
+              ],
+            },
+          },
+        ],
+      });
+    }
+
+    function createRequestBodyWithReference(textValue: string): string {
+      return JSON.stringify({
+        requests: [
+          {
+            structuredPrompt: {
+              parts: [
+                { text: textValue },
+                { inlineData: { mimeType: "image/png", data: "base64data..." } },
+              ],
+            },
+          },
+        ],
+      });
+    }
+
+    it("対象URLのリクエストbodyのtextパートがエスケープされる", async () => {
+      // モックfetchをセット（installFetchInterceptorがラップする対象）
+      const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+      window.fetch = mockFetch;
+
+      mockEditorAPIs();
+      setupUnicodeEscape();
+
+      // インターセプトされたfetchでリクエスト発行
+      const body = createRequestBody("日本語テスト");
+      await window.fetch(TARGET_URL, {
+        method: "POST",
+        body,
+      });
+
+      // モックfetchに渡されたbodyを検証
+      const calledBody = mockFetch.mock.calls[0][1]?.body as string;
+      const parsed = JSON.parse(calledBody);
+      // textパートがエスケープされていること
+      expect(parsed.requests[0].structuredPrompt.parts[0].text).toBe(
+        " \\u65E5\\u672C\\u8A9E\\u30C6\\u30B9\\u30C8"
+      );
+    });
+
+    it("非対象URLのリクエストはそのまま通す", async () => {
+      const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+      window.fetch = mockFetch;
+
+      mockEditorAPIs();
+      setupUnicodeEscape();
+
+      const body = createRequestBody("日本語テスト");
+      await window.fetch(NON_TARGET_URL, {
+        method: "POST",
+        body,
+      });
+
+      // bodyが変更されていないこと
+      const calledBody = mockFetch.mock.calls[0][1]?.body as string;
+      const parsed = JSON.parse(calledBody);
+      expect(parsed.requests[0].structuredPrompt.parts[0].text).toBe("日本語テスト");
+    });
+
+    it("referenceパートは変更されない", async () => {
+      const mockFetch = vi.fn().mockResolvedValue(new Response("ok"));
+      window.fetch = mockFetch;
+
+      mockEditorAPIs();
+      setupUnicodeEscape();
+
+      const body = createRequestBodyWithReference("日本語テスト");
+      await window.fetch(TARGET_URL, {
+        method: "POST",
+        body,
+      });
+
+      const calledBody = mockFetch.mock.calls[0][1]?.body as string;
+      const parsed = JSON.parse(calledBody);
+      // textパートはエスケープされる
+      expect(parsed.requests[0].structuredPrompt.parts[0].text).toBe(
+        " \\u65E5\\u672C\\u8A9E\\u30C6\\u30B9\\u30C8"
+      );
+      // referenceパート（inlineData）は変更されない
+      expect(parsed.requests[0].structuredPrompt.parts[1].inlineData).toEqual({
+        mimeType: "image/png",
+        data: "base64data...",
+      });
+      // referenceパートにtextが追加されていないこと
+      expect(parsed.requests[0].structuredPrompt.parts[1].text).toBeUndefined();
     });
   });
 });
